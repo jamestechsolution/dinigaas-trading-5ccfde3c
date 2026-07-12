@@ -1434,6 +1434,50 @@ function ShareholdersAdmin() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
+  async function handleBulkUpload(files: File[]) {
+    if (!files.length) return;
+    setBulkProgress({ done: 0, total: files.length });
+    let created = 0;
+    let failed = 0;
+    let base = items.length;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `shareholders/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("site_media")
+          .upload(path, file, { upsert: false, contentType: file.type });
+        if (upErr) throw upErr;
+        const { data } = supabase.storage.from("site_media").getPublicUrl(path);
+        const { error: insErr } = await supabase.from("shareholders").insert({
+          name: "",
+          role: "",
+          stake: "",
+          bio: "",
+          email: "",
+          phone: "",
+          image_url: data.publicUrl,
+          sort_order: base + i + 1,
+          active: true,
+        });
+        if (insErr) throw insErr;
+        created++;
+      } catch (e) {
+        failed++;
+        toast.error(`${file.name}: ${(e as Error).message}`);
+      }
+      setBulkProgress({ done: i + 1, total: files.length });
+    }
+    setBulkProgress(null);
+    if (created) {
+      track("admin_shareholder_bulk_upload", { created, failed });
+      toast.success(`Uploaded ${created} photo${created === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}`);
+    }
+    load();
+  }
 
   const load = () =>
     supabase
@@ -1540,29 +1584,51 @@ function ShareholdersAdmin() {
 
   return (
     <div className="space-y-4">
-      <Btn
-        onClick={() => {
-          track("admin_shareholder_add_click");
-          setEditing({
-            name: "",
-            role: "",
-            stake: "",
-            bio: "",
-            email: "",
-            phone: "",
-            image_url: null,
-            sort_order: items.length + 1,
-            active: true,
-          });
-        }}
-      >
-        <Plus className="size-4" /> Add shareholder
-      </Btn>
+      <div className="flex flex-wrap items-center gap-2">
+        <Btn
+          onClick={() => {
+            track("admin_shareholder_add_click");
+            setEditing({
+              name: "",
+              role: "",
+              stake: "",
+              bio: "",
+              email: "",
+              phone: "",
+              image_url: null,
+              sort_order: items.length + 1,
+              active: true,
+            });
+          }}
+        >
+          <Plus className="size-4" /> Add shareholder
+        </Btn>
+
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent">
+          <Upload className="size-4" />
+          {bulkProgress
+            ? `Uploading ${bulkProgress.done}/${bulkProgress.total}…`
+            : "Bulk upload photos"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            disabled={!!bulkProgress}
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.currentTarget.value = "";
+              if (files.length) void handleBulkUpload(files);
+            }}
+          />
+        </label>
+      </div>
 
       <p className="text-xs text-muted-foreground">
         Drag the <GripVertical className="inline size-3 align-text-bottom" aria-hidden /> handle to reorder.
         {savingOrder ? " Saving…" : ""}
       </p>
+
 
       <div className="grid gap-3">
         {items.map((s) => (
