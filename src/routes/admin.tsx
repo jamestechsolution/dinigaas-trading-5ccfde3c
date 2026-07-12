@@ -1434,6 +1434,50 @@ function ShareholdersAdmin() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
+  async function handleBulkUpload(files: File[]) {
+    if (!files.length) return;
+    setBulkProgress({ done: 0, total: files.length });
+    let created = 0;
+    let failed = 0;
+    let base = items.length;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `shareholders/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("site_media")
+          .upload(path, file, { upsert: false, contentType: file.type });
+        if (upErr) throw upErr;
+        const { data } = supabase.storage.from("site_media").getPublicUrl(path);
+        const { error: insErr } = await supabase.from("shareholders").insert({
+          name: "",
+          role: "",
+          stake: "",
+          bio: "",
+          email: "",
+          phone: "",
+          image_url: data.publicUrl,
+          sort_order: base + i + 1,
+          active: true,
+        });
+        if (insErr) throw insErr;
+        created++;
+      } catch (e) {
+        failed++;
+        toast.error(`${file.name}: ${(e as Error).message}`);
+      }
+      setBulkProgress({ done: i + 1, total: files.length });
+    }
+    setBulkProgress(null);
+    if (created) {
+      track("admin_shareholder_bulk_upload", { created, failed });
+      toast.success(`Uploaded ${created} photo${created === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}`);
+    }
+    load();
+  }
 
   const load = () =>
     supabase
