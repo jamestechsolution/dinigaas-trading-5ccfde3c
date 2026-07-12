@@ -1584,29 +1584,51 @@ function ShareholdersAdmin() {
 
   return (
     <div className="space-y-4">
-      <Btn
-        onClick={() => {
-          track("admin_shareholder_add_click");
-          setEditing({
-            name: "",
-            role: "",
-            stake: "",
-            bio: "",
-            email: "",
-            phone: "",
-            image_url: null,
-            sort_order: items.length + 1,
-            active: true,
-          });
-        }}
-      >
-        <Plus className="size-4" /> Add shareholder
-      </Btn>
+      <div className="flex flex-wrap items-center gap-2">
+        <Btn
+          onClick={() => {
+            track("admin_shareholder_add_click");
+            setEditing({
+              name: "",
+              role: "",
+              stake: "",
+              bio: "",
+              email: "",
+              phone: "",
+              image_url: null,
+              sort_order: items.length + 1,
+              active: true,
+            });
+          }}
+        >
+          <Plus className="size-4" /> Add shareholder
+        </Btn>
+
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent">
+          <Upload className="size-4" />
+          {bulkProgress
+            ? `Uploading ${bulkProgress.done}/${bulkProgress.total}…`
+            : "Bulk upload photos"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            disabled={!!bulkProgress}
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.currentTarget.value = "";
+              if (files.length) void handleBulkUpload(files);
+            }}
+          />
+        </label>
+      </div>
 
       <p className="text-xs text-muted-foreground">
         Drag the <GripVertical className="inline size-3 align-text-bottom" aria-hidden /> handle to reorder.
         {savingOrder ? " Saving…" : ""}
       </p>
+
 
       <div className="grid gap-3">
         {items.map((s) => (
