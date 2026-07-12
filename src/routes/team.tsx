@@ -71,11 +71,8 @@ function TeamPage() {
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
-                <div className="p-6">
-                  <h3 className="font-serif text-xl text-primary">{m.name}</h3>
-                  <p className="mt-1 text-sm font-semibold text-clay">{m.role}</p>
-                </div>
               </Reveal>
+
               );
             })}
           </div>
