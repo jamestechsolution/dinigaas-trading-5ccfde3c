@@ -23,16 +23,26 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const goNext = () => {
+    if (next && next.startsWith("/")) {
+      window.location.href = next;
+    } else {
+      navigate({ to: "/admin" });
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin" });
+      if (data.session) goNext();
     });
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,19 +51,20 @@ function AuthPage() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/admin` },
+        options: { emailRedirectTo: next && next.startsWith("/") ? `${window.location.origin}${next}` : `${window.location.origin}/admin` },
       });
       setLoading(false);
       if (error) return toast.error(error.message);
       toast.success(t("auth.signupOk"));
-      navigate({ to: "/admin" });
+      goNext();
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
       if (error) return toast.error(error.message);
-      navigate({ to: "/admin" });
+      goNext();
     }
   }
+
 
   return (
     <SiteLayout>
