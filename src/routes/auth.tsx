@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign in — Dinigaas Admin" },
@@ -14,6 +17,7 @@ export const Route = createFileRoute("/auth")({
   }),
   component: AuthPage,
 });
+
 
 function AuthPage() {
   const { t } = useI18n();
