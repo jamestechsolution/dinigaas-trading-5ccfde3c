@@ -6,9 +6,10 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    next: typeof s.next === "string" ? s.next : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>): { next?: string } => {
+    return typeof s.next === "string" ? { next: s.next } : {};
+  },
+
   head: () => ({
     meta: [
       { title: "Sign in — Dinigaas Admin" },
