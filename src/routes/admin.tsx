@@ -1651,7 +1651,7 @@ function ShareholdersAdmin() {
             onChange={(e) => {
               const files = Array.from(e.target.files ?? []);
               e.currentTarget.value = "";
-              if (files.length) void handleBulkUpload(files);
+              if (files.length) startBulk(files);
             }}
           />
         </label>
