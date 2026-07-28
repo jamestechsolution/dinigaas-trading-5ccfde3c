@@ -1427,6 +1427,8 @@ type Shareholder = {
   active: boolean;
 };
 
+const SHAREHOLDER_ASPECT = 4 / 3;
+
 function ShareholdersAdmin() {
   const [items, setItems] = useState<Shareholder[]>([]);
   const [editing, setEditing] = useState<Partial<Shareholder> | null>(null);
@@ -1435,49 +1437,84 @@ function ShareholdersAdmin() {
   const [overId, setOverId] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [editCropFile, setEditCropFile] = useState<File | null>(null);
+  const [bulkQueue, setBulkQueue] = useState<File[]>([]);
+  const [bulkStats, setBulkStats] = useState<{ created: number; failed: number; base: number } | null>(null);
 
-  async function handleBulkUpload(files: File[]) {
+  async function uploadBlobToStorage(blob: Blob, originalName: string): Promise<string> {
+    const ext = (originalName.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `shareholders/${crypto.randomUUID()}.${ext === "png" ? "png" : "jpg"}`;
+    const contentType = blob.type || "image/jpeg";
+    const { error: upErr } = await supabase.storage
+      .from("site_media")
+      .upload(path, blob, { upsert: false, contentType });
+    if (upErr) throw upErr;
+    const { data } = supabase.storage.from("site_media").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  function startBulk(files: File[]) {
     if (!files.length) return;
+    setBulkStats({ created: 0, failed: 0, base: items.length });
     setBulkProgress({ done: 0, total: files.length });
-    let created = 0;
-    let failed = 0;
-    let base = items.length;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const ext = file.name.split(".").pop() || "jpg";
-        const path = `shareholders/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("site_media")
-          .upload(path, file, { upsert: false, contentType: file.type });
-        if (upErr) throw upErr;
-        const { data } = supabase.storage.from("site_media").getPublicUrl(path);
-        const { error: insErr } = await supabase.from("shareholders").insert({
-          name: "",
-          role: "",
-          stake: "",
-          bio: "",
-          email: "",
-          phone: "",
-          image_url: data.publicUrl,
-          sort_order: base + i + 1,
-          active: true,
-        });
-        if (insErr) throw insErr;
-        created++;
-      } catch (e) {
-        failed++;
-        toast.error(`${file.name}: ${(e as Error).message}`);
-      }
-      setBulkProgress({ done: i + 1, total: files.length });
+    setBulkQueue(files);
+  }
+
+  async function handleBulkCropConfirm(blob: Blob) {
+    if (!bulkQueue.length || !bulkStats) return;
+    const [current, ...rest] = bulkQueue;
+    const done = (bulkProgress?.done ?? 0) + 1;
+    setUploading(true);
+    try {
+      const url = await uploadBlobToStorage(blob, current.name);
+      const { error: insErr } = await supabase.from("shareholders").insert({
+        name: "",
+        role: "",
+        stake: "",
+        bio: "",
+        email: "",
+        phone: "",
+        image_url: url,
+        sort_order: bulkStats.base + bulkStats.created + 1,
+        active: true,
+      });
+      if (insErr) throw insErr;
+      setBulkStats({ ...bulkStats, created: bulkStats.created + 1 });
+    } catch (e) {
+      setBulkStats({ ...bulkStats, failed: bulkStats.failed + 1 });
+      toast.error(`${current.name}: ${(e as Error).message}`);
+    } finally {
+      setUploading(false);
     }
+    setBulkProgress({ done, total: bulkProgress?.total ?? done });
+    if (rest.length === 0) finishBulk({ ...bulkStats, created: bulkStats.created + 1 });
+    else setBulkQueue(rest);
+  }
+
+  function skipBulkCurrent() {
+    if (!bulkQueue.length || !bulkStats) return;
+    const [, ...rest] = bulkQueue;
+    const done = (bulkProgress?.done ?? 0) + 1;
+    const nextStats = { ...bulkStats, failed: bulkStats.failed + 1 };
+    setBulkStats(nextStats);
+    setBulkProgress({ done, total: bulkProgress?.total ?? done });
+    if (rest.length === 0) finishBulk(nextStats);
+    else setBulkQueue(rest);
+  }
+
+  function finishBulk(final: { created: number; failed: number; base: number }) {
+    setBulkQueue([]);
     setBulkProgress(null);
-    if (created) {
-      track("admin_shareholder_bulk_upload", { created, failed });
-      toast.success(`Uploaded ${created} photo${created === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}`);
+    setBulkStats(null);
+    if (final.created) {
+      track("admin_shareholder_bulk_upload", { created: final.created, failed: final.failed });
+      toast.success(
+        `Uploaded ${final.created} photo${final.created === 1 ? "" : "s"}${final.failed ? ` (${final.failed} skipped)` : ""}`,
+      );
     }
     load();
   }
+
 
   const load = () =>
     supabase
