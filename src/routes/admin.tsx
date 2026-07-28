@@ -1769,9 +1769,10 @@ function ShareholdersAdmin() {
                     className="sr-only"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) handleUpload(f);
+                      if (f) setEditCropFile(f);
                       e.currentTarget.value = "";
                     }}
+
                   />
                 </label>
                 {editing.image_url && (
