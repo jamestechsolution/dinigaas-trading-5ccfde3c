@@ -1818,6 +1818,28 @@ function ShareholdersAdmin() {
           </div>
         </Modal>
       )}
+
+      {editCropFile && (
+        <ImageCropDialog
+          file={editCropFile}
+          aspect={SHAREHOLDER_ASPECT}
+          busy={uploading}
+          onCancel={() => setEditCropFile(null)}
+          onConfirm={handleEditCropConfirm}
+        />
+      )}
+
+      {bulkQueue.length > 0 && (
+        <ImageCropDialog
+          key={bulkQueue[0].name + bulkQueue.length}
+          file={bulkQueue[0]}
+          aspect={SHAREHOLDER_ASPECT}
+          busy={uploading}
+          onCancel={skipBulkCurrent}
+          onConfirm={handleBulkCropConfirm}
+        />
+      )}
     </div>
   );
 }
+
