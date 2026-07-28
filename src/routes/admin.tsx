@@ -1599,25 +1599,21 @@ function ShareholdersAdmin() {
     load();
   }
 
-  async function handleUpload(file: File) {
-    if (!editing) return;
+  async function handleEditCropConfirm(blob: Blob) {
+    if (!editing || !editCropFile) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `shareholders/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("site_media")
-        .upload(path, file, { upsert: false, contentType: file.type });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from("site_media").getPublicUrl(path);
-      setEditing({ ...editing, image_url: data.publicUrl });
+      const url = await uploadBlobToStorage(blob, editCropFile.name);
+      setEditing({ ...editing, image_url: url });
       toast.success("Photo uploaded");
+      setEditCropFile(null);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setUploading(false);
     }
   }
+
 
   return (
     <div className="space-y-4">
