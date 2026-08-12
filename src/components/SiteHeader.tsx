@@ -1,4 +1,10 @@
 import { Link } from "@tanstack/react-router";
+
+const navLabel = (t: (k: string, v?: Record<string, string | number>) => string, label: string) => {
+  const key = `nav.${label}`;
+  const out = t(key);
+  return out === key ? label : out;
+};
 import { useState } from "react";
 import { Menu, X, MapPin, Lock } from "lucide-react";
 import { useNavItems } from "@/hooks/use-nav-items";
@@ -52,7 +58,7 @@ export function SiteHeader() {
                 activeProps={{ className: "text-primary" }}
                 activeOptions={{ exact: item.path === "/" }}
               >
-                {t(`nav.${item.label}`, {})}
+                {navLabel(t, item.label)}
               </Link>
             ))}
           </nav>
@@ -106,7 +112,7 @@ export function SiteHeader() {
                   activeProps={{ className: "bg-accent text-primary" }}
                   activeOptions={{ exact: item.path === "/" }}
                 >
-                  {t(`nav.${item.label}`, {})}
+                  {navLabel(t, item.label)}
                 </Link>
               ))}
               <Link
